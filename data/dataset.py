@@ -72,10 +72,10 @@ class ClearGraspViT_Dataset(Dataset):
                 # Construct paths for all modalities
                 paths = {
                     'rgb': os.path.join(rgb_dir, f"{base_name}-rgb.jpg"),
-#                    'depth': os.path.join(self.root_dir, obj_dir, 'depth-imgs-rectified', f"{base_name}-depth-rectified.exr"),
+                    'depth': os.path.join(self.root_dir, obj_dir, 'depth-imgs-rectified', f"{base_name}-depth-rectified.exr"),
                     'normals_gt': os.path.join(self.root_dir, obj_dir, 'camera-normals', f"{base_name}-cameraNormals.exr"),
-#                   'mask_gt': os.path.join(self.root_dir, obj_dir, 'segmentation-masks', f"{base_name}-segmentation-mask.png"),
-#                    'boundary_gt': os.path.join(self.root_dir, obj_dir, 'outlines', f"{base_name}-outlineSegmentation.png"),
+                    'mask_gt': os.path.join(self.root_dir, obj_dir, 'segmentation-masks', f"{base_name}-segmentation-mask.png"),
+                    'boundary_gt': os.path.join(self.root_dir, obj_dir, 'outlines', f"{base_name}-outlineSegmentation.png"),
                 }
 
                 # Ensure all required files for this sample exist
