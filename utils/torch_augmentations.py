@@ -2,96 +2,95 @@
 # cleargrasp_vit/utils/torch_augmentations.py
 #
 import torch
+import torch.nn as nn
 import random
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Dict
 
 class Compose:
     """Composes several transforms together."""
     def __init__(self, transforms: List[Any]):
         self.transforms = transforms
 
-    def __call__(self, *args):
+    def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         for t in self.transforms:
-            args = t(*args)
-        return args
+            sample = t(sample)
+        return sample
 
-class ToTensor:
-    """Converts numpy array to torch tensor. Assumes input is HWC."""
-    def __call__(self, image, *other_data):
-        tensor = torch.from_numpy(image).permute(2, 0, 1)
-        return (tensor,) + other_data
+class Resize:
+    """Resizes all image-like tensors in a sample dictionary to a specified size."""
+    def __init__(self, size: Tuple[int, int]):
+        self.output_size = size
+      
+    def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        # Use the RGB image's shape to determine the original size
+        h, w = sample['rgb'].shape[-2:]
+
+        if isinstance(self.output_size, int):
+            if h < w:
+                new_h = self.output_size
+                new_w = int(new_h * w / h)
+            else:
+                new_w = self.output_size
+                new_h = int(new_w * h / w)
+            size = (new_h, new_w)
+        else:
+            size = self.output_size
+
+        for key, value in sample.items():
+            # Apply to any item that is a tensor and has spatial dimensions
+            if isinstance(value, torch.Tensor) and value.dim() >= 2:
+                # Ensure tensor is in (C, H, W) format before unsqueezing
+                if value.dim() == 2:
+                    value = value.unsqueeze(0)  # Add channel dim: (H, W) -> (1, H, W)
+
+                # --- FIX for ValueError ---
+                # F.interpolate requires a 4D batch input (N, C, H, W).
+                # We add a batch dimension, resize, and then remove it.
+                batched_value = value.unsqueeze(0)
+
+                # Use 'nearest' interpolation for masks and integer-based data
+                # to avoid creating interpolated float values. Use 'bilinear' for others.
+                mode = 'nearest' if 'mask' in key or 'boundary' in key else 'bilinear'
+                
+                try:
+                  resized_tensor = nn.functional.interpolate(
+                    batched_value,
+                    size=size,
+                    mode=mode,
+                    align_corners=False if mode == 'bilinear' else None
+                  )
+                except:
+                  print(batched_value.shape)
+                  return None
+
+                sample[key] = resized_tensor.squeeze(0) # Remove batch dimension
+
+        return sample
 
 class Normalize:
-    """Normalizes a tensor image with mean and standard deviation."""
+    """Normalizes the RGB image tensor with mean and standard deviation."""
     def __init__(self, mean: List[float], std: List[float]):
         self.mean = torch.tensor(mean).view(3, 1, 1)
         self.std = torch.tensor(std).view(3, 1, 1)
 
-    def __call__(self, tensor: torch.Tensor, *other_data):
-        tensor = (tensor.float() / 255.0 - self.mean) / self.std
-        return (tensor,) + other_data
+    def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        rgb_tensor = sample['rgb'].to(self.mean.device)
+        rgb_tensor = (rgb_tensor.float() / 255.0 - self.mean) / self.std
+        sample['rgb'] = rgb_tensor
+        return sample
 
 class RandomHorizontalFlip:
-    """Horizontally flip the given image randomly with a given probability."""
+    """Horizontally flip all images in the sample randomly with a given probability."""
     def __init__(self, p: float = 0.5):
         self.p = p
 
-    def __call__(self, image: torch.Tensor, normals: torch.Tensor, *other_data):
+    def __call__(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         if random.random() < self.p:
-            image = torch.flip(image, )
-            normals = torch.flip(normals, )
-            normals[0, :, :] *= -1 # Flip the x-component of the normal vector
-        return (image, normals) + other_data
-
-class RandomRotation:
-    """Rotate the image by a random angle."""
-    def __init__(self, degrees: Tuple[float, float]):
-        self.degrees = degrees
-
-    def __call__(self, image: torch.Tensor, *other_data):
-        angle = random.uniform(self.degrees, self.degrees)
-        theta = torch.tensor([torch.cos(torch.tensor(angle * torch.pi / 180.0)), -torch.sin(torch.tensor(angle * torch.pi / 180.0)), 0],
-            [torch.sin(torch.tensor(angle * torch.pi / 180.0)), torch.cos(torch.tensor(angle * torch.pi / 180.0)), 0], dtype=torch.float32)
-        
-        grid = nn.functional.affine_grid(theta.unsqueeze(0), image.unsqueeze(0).size(), align_corners=False).to(image.device)
-        
-        rotated_image = nn.functional.grid_sample(image.unsqueeze(0), grid, align_corners=False).squeeze(0)
-        
-        # Apply rotation to other tensors if they are provided
-        rotated_others =
-        for data in other_data:
-            if isinstance(data, torch.Tensor) and data.dim() >= 3:
-                rotated_data = nn.functional.grid_sample(data.unsqueeze(0), grid, align_corners=False).squeeze(0)
-                rotated_others.append(rotated_data)
-            else:
-                rotated_others.append(data)
-
-        return (rotated_image,) + tuple(rotated_others)
-
-class ColorJitter:
-    """Randomly change the brightness, contrast, saturation and hue of an image."""
-    def __init__(self, brightness=0, contrast=0, saturation=0, hue=0):
-        self.brightness = brightness
-        self.contrast = contrast
-        self.saturation = saturation
-        self.hue = hue
-
-    def __call__(self, image: torch.Tensor, *other_data):
-        # This is a simplified implementation. A full implementation would require
-        # converting to HSV for hue/saturation, which is complex in pure torch.
-        # Here we demonstrate brightness and contrast.
-        
-        # Brightness
-        if self.brightness > 0:
-            factor = random.uniform(1 - self.brightness, 1 + self.brightness)
-            image = image.float() * factor
-            image = torch.clamp(image, 0, 255).to(torch.uint8)
-
-        # Contrast
-        if self.contrast > 0:
-            factor = random.uniform(1 - self.contrast, 1 + self.contrast)
-            mean = torch.mean(image.float(), dim=(1, 2), keepdim=True)
-            image = (image.float() - mean) * factor + mean
-            image = torch.clamp(image, 0, 255).to(torch.uint8)
-            
-        return (image,) + other_data
+            for key, value in sample.items():
+                if isinstance(value, torch.Tensor) and value.dim() >= 2:
+                    flipped_tensor = torch.flip(value, dims=[-1])
+                    # Flip the x-component of the normal vector
+                    if 'normals' in key:
+                        flipped_tensor[0, :, :] *= -1
+                    sample[key] = flipped_tensor
+        return sample
