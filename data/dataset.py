@@ -95,10 +95,11 @@ class ClearGraspViT_Dataset(Dataset):
         depth_raw = read_exr_torch(sample_paths['depth'], self.device)
         normals_gt = read_exr_torch(sample_paths['normals_gt'], self.device)
         mask_gt = read_png_torch(sample_paths['mask_gt'], self.device)
+        mask_gt = mask_gt / 255
         
         # Boundary is a JPG but should be treated as a single-channel mask
         boundary_jpg = read_png_torch(sample_paths['boundary_gt'], self.device)
-        boundary_gt = (boundary_jpg > 128).long().unsqueeze(0) # Take one channel, threshold, and add channel dim back
+        boundary_gt = (boundary_jpg > 128).float().unsqueeze(0) # Take one channel, threshold, and add channel dim back
 
         # For synthetic training data, the rendered depth is the ground truth
         depth_gt = depth_raw.clone()
@@ -115,6 +116,8 @@ class ClearGraspViT_Dataset(Dataset):
 
         if self.transform:
             for key, value in sample.items():
+              if key == 'name':
+                continue
               sample[key] = self.transform(value)
             
         return sample
