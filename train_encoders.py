@@ -42,7 +42,7 @@ def train_encoders(config):
 
     # 2. Initialize Models
     normal_model = create_vit_dense_predictor(config['model']['vit'], output_channels=3).to(device)
-    boundary_model = create_vit_dense_predictor(config['model']['vit'], output_channels=3).to(device)
+    boundary_model = create_vit_dense_predictor(config['model']['vit'], output_channels=1).to(device)
     segmentation_model = create_vit_dense_predictor(config['model']['vit'], output_channels=1).to(device)
 
     # 3. Initialize Optimizers and Loss Functions
@@ -51,7 +51,7 @@ def train_encoders(config):
         lr=config['training']['learning_rate']
     )
     normal_loss_fn = nn.L1Loss()
-    boundary_loss_fn = nn.CrossEntropyLoss(weight=torch.tensor([1.0, 5.0, 5.0]).to(device)) # Weighted loss
+    boundary_loss_fn = nn.CrossEntropyLoss() # Weighted loss
     segmentation_loss_fn = nn.BCEWithLogitsLoss()
 
     # 4. Training Loop
@@ -64,15 +64,15 @@ def train_encoders(config):
             
             # Forward pass and loss for each model
             rgb = rgb / 255
+
             pred_normals = normal_model(rgb)
-            
             loss_n = normal_loss_fn(torch.nn.functional.normalize(pred_normals, p=2, dim=1), batch['normals_gt'])
             
             pred_boundaries = boundary_model(rgb)
-            loss_b = boundary_loss_fn(pred_boundaries, batch['boundary_gt'])
+            loss_b = boundary_loss_fn(torch.squeeze(pred_boundaries), torch.squeeze(batch['boundary_gt']))
             
             pred_mask = segmentation_model(rgb)
-            loss_s = segmentation_loss_fn(pred_mask, batch['mask_gt'])
+            loss_s = segmentation_loss_fn(torch.squeeze(pred_mask), torch.squeeze(batch['mask_gt']))
             
             total_loss = loss_n + loss_b + loss_s
             total_loss.backward()
