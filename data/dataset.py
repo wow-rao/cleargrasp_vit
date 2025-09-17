@@ -92,25 +92,25 @@ class ClearGraspViT_Dataset(Dataset):
         
         # --- Load all data modalities using the appropriate reader ---
         rgb = read_jpg_torch(sample_paths['rgb'], self.device)
-        #depth_raw = read_exr_torch(sample_paths['depth'], self.device)
+        depth_raw = read_exr_torch(sample_paths['depth'], self.device)
         normals_gt = read_exr_torch(sample_paths['normals_gt'], self.device)
-        #mask_gt = read_png_torch(sample_paths['mask_gt'], self.device)
+        mask_gt = read_png_torch(sample_paths['mask_gt'], self.device)
         
         # Boundary is a JPG but should be treated as a single-channel mask
-        #boundary_jpg = read_png_torch(sample_paths['boundary_gt'], self.device)
-        #boundary_gt = (boundary_jpg > 128).long().unsqueeze(0) # Take one channel, threshold, and add channel dim back
+        boundary_jpg = read_png_torch(sample_paths['boundary_gt'], self.device)
+        boundary_gt = (boundary_jpg > 128).long().unsqueeze(0) # Take one channel, threshold, and add channel dim back
 
         # For synthetic training data, the rendered depth is the ground truth
-        #depth_gt = depth_raw.clone()
+        depth_gt = depth_raw.clone()
 
         sample = {
             'rgb': rgb,
-#           'depth': depth_raw,
+            'depth': depth_raw,
             'normals_gt': normals_gt,
-#           'mask_gt': mask_gt,
-#           'boundary_gt': boundary_gt,
-#           'depth_gt': depth_gt,
-#           'name': os.path.splitext(os.path.basename(sample_paths['rgb']))
+            'mask_gt': mask_gt,
+            'boundary_gt': boundary_gt,
+            'depth_gt': depth_gt,
+            'name': os.path.splitext(os.path.basename(sample_paths['rgb']))
         }
 
         if self.transform:
