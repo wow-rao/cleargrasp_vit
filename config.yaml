@@ -1,0 +1,41 @@
+# Configuration for ClearGrasp-ViT
+
+# Section 1: Data and File Paths
+data:
+  train_path: "./data/cleargrasp-dataset-train"
+  test_path: "./data/cleargrasp-dataset-test-val"
+  split_ratio: 0.7
+
+paths:
+  normal_model_save: "./checkpoints/normal_vit.pth"
+  boundary_model_save: "./checkpoints/boundary_vit.pth"
+  segmentation_model_save: "./checkpoints/segmentation_vit.pth"
+  depth_fusion_model_save: "./checkpoints/depth_fusion_vit.pth"
+
+# Section 2: Training Hyperparameters
+training:
+  # Stage 1: Encoder Training
+  learning_rate: 0.0001
+  batch_size: 16
+  epochs: 50
+
+  # Stage 2: Decoder Training
+  learning_rate_decoder: 0.00005
+  batch_size_decoder: 8
+  epochs_decoder: 30
+
+# Section 3: Model Architecture Configuration
+model:
+  vit:
+    image_size: 256
+    patch_size: 16
+    in_channels: 3 # For RGB input to encoders
+    num_classes: 1000 # Placeholder, not used for dense prediction head
+    dim: 768
+    depth: 12
+    heads: 12
+    mlp_dim: 3072
+    dropout: 0.1
+    emb_dropout: 0.1
+  
+  depth_decoder_channels:  # Example for upsampling head
