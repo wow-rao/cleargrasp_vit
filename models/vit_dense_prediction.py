@@ -3,7 +3,7 @@
 #
 import torch
 import torch.nn as nn
-from.vit_core import VisionTransformer
+from vit_core import VisionTransformer
 
 class ConvUpsampler(nn.Module):
     """
@@ -41,7 +41,7 @@ class ViTDensePrediction(nn.Module):
         
         # Build the decoder
         in_ch = self.embed_dim
-        decoder_blocks =
+        decoder_blocks = []
         for out_ch in decoder_channels:
             decoder_blocks.append(ConvUpsampler(in_ch, out_ch))
             in_ch = out_ch
