@@ -59,7 +59,7 @@ def train_encoders(config):
     segmentation_loss_fn = nn.BCEWithLogitsLoss()
 
     # 4. Setup Early Stopping
-    early_stopping = EarlyStopping(patience=patience, delta=delta, verbose=True)
+    early_stopping = EarlyStopping(verbose=True)
 
     # 4. Training Loop
     for epoch in range(config['training']['epochs']):
