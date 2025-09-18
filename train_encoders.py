@@ -22,6 +22,7 @@ import torch.nn as nn
 from dataset import ClearGraspViT_Dataset
 from vit_dense_prediction import create_vit_dense_predictor
 from torch_augmentations import Compose, Resize, Normalize, RandomHorizontalFlip
+from early_stopping import EarlyStopping
 
 def train_encoders(config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -38,7 +39,10 @@ def train_encoders(config):
         transform=train_transform,
         device=device
     )
+    
+    train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, [0.8, 0.2])
     train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'], shuffle=True)
 
     # 2. Initialize Models
     normal_model = create_vit_dense_predictor(config['model']['vit'], output_channels=3).to(device)
@@ -54,8 +58,17 @@ def train_encoders(config):
     boundary_loss_fn = nn.CrossEntropyLoss() # Weighted loss
     segmentation_loss_fn = nn.BCEWithLogitsLoss()
 
+    # 4. Setup Early Stopping
+    early_stopping = EarlyStopping(patience=patience, delta=delta, verbose=True)
+
     # 4. Training Loop
     for epoch in range(config['training']['epochs']):
+        train_loss = 0.0
+        val_loss = 0.0
+
+        normal_model.train()
+        boundary_model.train()
+        segmentation_model.train()
         for batch in train_loader:
             rgb = batch['rgb'].to(device)
             #... get ground truths
@@ -77,13 +90,45 @@ def train_encoders(config):
             total_loss = loss_n + loss_b + loss_s
             total_loss.backward()
             optimizer.step()
+            train_loss += loss.item()
+
+        normal_model.eval()
+        boundary_model.eval()
+        segmentation_model.eval()
+        with torch.no_grad():
+            for data, target in val_loader:
+                pred_normals = normal_model(rgb)
+                loss_n = normal_loss_fn(torch.nn.functional.normalize(pred_normals, p=2, dim=1), batch['normals_gt'])
             
-            #... logging
-            print(f"Epoch {epoch+1} finished with average loss: {total_loss.item():.4f}")
+                pred_boundaries = boundary_model(rgb)
+                loss_b = boundary_loss_fn(torch.squeeze(pred_boundaries), torch.squeeze(batch['boundary_gt']))
+            
+                pred_mask = segmentation_model(rgb)
+                loss_s = segmentation_loss_fn(torch.squeeze(pred_mask), torch.squeeze(batch['mask_gt']))
+                
+                loss = loss_n + loss_b + loss_s
+                val_loss += loss.item()
+    
+        # Average validation loss
+        val_loss /= len(val_loader)
+
+        #Avergae Training loss
+        train_loss /= len(train_loader)
+
+        # Check early stopping condition
+        early_stopping.check_early_stop(val_loss)
+    
+        if early_stopping.stop_training:
+            print(f"Early stopping at epoch {epoch}")
+            break
+            
+        #... logging
+        print(f"Epoch {epoch+1} finished with average loss: {train_loss.item():.4f}")
             
     # 5. Save model checkpoints
     torch.save(normal_model.state_dict(), config['paths']['normal_model_save'])
-    #... save other models
+    torch.save(boundary_model.state_dict(), config['paths']['boundary_model_save'])
+    torch.save(segmentation_model.state_dict(), config['paths']['segmentation_model_save'])
 
 if __name__ == '__main__':
     with open('/content/cleargrasp_vit/config.yaml', 'r') as f:
