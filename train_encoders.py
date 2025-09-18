@@ -90,7 +90,7 @@ def train_encoders(config):
             total_loss = loss_n + loss_b + loss_s
             total_loss.backward()
             optimizer.step()
-            train_loss += loss.item()
+            train_loss += total_loss.item()
 
         normal_model.eval()
         boundary_model.eval()
