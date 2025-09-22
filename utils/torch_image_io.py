@@ -36,7 +36,7 @@ def read_jpg_torch(path: str, device: Union[str, torch.device] = 'cpu') -> torch
     tensor = tensor.permute(2, 0, 1)
     return tensor
 
-def read_exr_torch(path: str, device: Union[str, torch.device] = 'cpu') -> torch.Tensor:
+def read_exr_torch(path: str, device: Union[str, torch.device] = 'cpu', test: bool = False) -> torch.Tensor:
     """Reads an EXR file (either single-channel depth or 3-channel normals) and returns a torch.Tensor."""
     exr_file = OpenEXR.InputFile(path)
     dw = exr_file.header()
@@ -47,7 +47,7 @@ def read_exr_torch(path: str, device: Union[str, torch.device] = 'cpu') -> torch
     # Determine pixel type and channels
     pt = Imath.PixelType(Imath.PixelType.FLOAT)
     channels_str = list(dw['channels'].keys())
-    
+
     if 'R' in channels_str and 'G' in channels_str and 'B' in channels_str:
         # 3-channel image (likely normals)
         r_str = exr_file.channel('R', pt)
