@@ -34,7 +34,7 @@ class ClearGraspViT_Dataset(Dataset):
             transform (Compose): Augmentation and preprocessing pipeline.
             device (str): Device to load tensors onto ('cpu' or 'cuda').
         """
-        self.root_dir = '/content/cleargrasp_vit/data/cleargrasp-dataset-train'
+        self.root_dir = './data/cleargrasp-dataset-train'
         self.transform = transform
         self.device = device
         self.samples = self._find_samples()
@@ -93,7 +93,7 @@ class ClearGraspViT_Dataset(Dataset):
         # --- Load all data modalities using the appropriate reader ---
         rgb = read_jpg_torch(sample_paths['rgb'], self.device)
         depth_raw = read_exr_torch(sample_paths['depth'], self.device)
-        normals_gt = read_exr_torch(sample_paths['normals_gt'], self.device)
+        normals_gt = read_exr_torch(sample_paths['normals_gt'], self.device, True)
         mask_gt = read_png_torch(sample_paths['mask_gt'], self.device)
         mask_gt = mask_gt / 255
         
