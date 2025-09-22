@@ -1,71 +1,153 @@
 #
-# train_decoder.py (simplified)
+# train_decoders.py (simplified)
 #
+
+import sys
+import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+target_folder_path_data = os.path.join(current_dir, 'data')
+target_folder_path_models = os.path.join(current_dir, 'models')
+target_folder_path_utils = os.path.join(current_dir, 'utils')
+
+sys.path.insert(0, target_folder_path_data)
+sys.path.insert(0, target_folder_path_models)
+sys.path.insert(0, target_folder_path_utils)
+
 import torch
 import yaml
 from torch.utils.data import DataLoader
-from cleargrasp_vit.data.dataset import ClearGraspViT_Dataset
-from cleargrasp_vit.models.vit_dense_prediction import create_vit_dense_predictor
-from cleargrasp_vit.models.depth_fusion_transformer import DepthFusionTransformer
+from torchvision import transforms
+import torch.nn as nn
+from dataset import ClearGraspViT_Dataset
+from vit_decoder import MultiImageVisionTransformer
+from torch_augmentations import Compose, Resize, Normalize, RandomHorizontalFlip
+from early_stopping import EarlyStopping
+import time
 
-def train_decoder(config):
+def train_decoders(config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # 1. Create Dataset for the decoder training subset
+    train_transform = transforms.Compose([
+      transforms.Resize((512, 512))
+    ])
+
+    # 1. Create Datasets and Dataloaders for the encoder training subset
     train_dataset = ClearGraspViT_Dataset(
         root_dir=config['data']['train_path'],
         subset='decoder',
         split_ratio=config['data']['split_ratio'],
-        #... add transforms
+        transform=train_transform,
+        device=device
     )
-    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size_decoder'], shuffle=True)
-
-    # 2. Load pre-trained encoder models
-    normal_model = create_vit_dense_predictor(config['model']['vit'], output_channels=3)
-    normal_model.load_state_dict(torch.load(config['paths']['normal_model_save']))
-    boundary_model = create_vit_dense_predictor(config['model']['vit'], output_channels=3)
-    boundary_model.load_state_dict(torch.load(config['paths']['boundary_model_save']))
-    segmentation_model = create_vit_dense_predictor(config['model']['vit'], output_channels=1) # Needed for mask
-    segmentation_model.load_state_dict(torch.load(config['paths']['segmentation_model_save']))
     
-    # 3. Initialize the Depth Fusion Transformer
-    depth_fusion_model = DepthFusionTransformer(
-        normal_estimator=normal_model,
-        boundary_detector=boundary_model,
-        vit_config=config['model']['vit'],
-        depth_decoder_channels=config['model']['depth_decoder_channels']
+    train_dataset, val_dataset = torch.utils.data.random_split(train_dataset, [0.8, 0.2])
+    train_loader = DataLoader(train_dataset, batch_size=config['training']['batch_size'], shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'], shuffle=True)
+
+    # 2. Initialize Models
+    channel_configs = [3, 3, 3, 3]  # RGB, Grayscale, 4-channel, RGB
+    
+    model = MultiImageVisionTransformer(
+        img_size=512,
+        patch_size=16,
+        channel_configs=channel_configs,
+        embed_dim=768,
+        num_heads=12,
+        hidden_dim=3072,
+        dropout=0.1
     ).to(device)
 
-    # 4. Initialize Optimizer and Loss Function
-    optimizer = torch.optim.AdamW(depth_fusion_model.parameters(), lr=config['training']['learning_rate_decoder'])
-    depth_loss_fn = nn.L1Loss()
+    # 3. Initialize Optimizers and Loss Functions
+    optimizer = torch.optim.AdamW(
+        list(model.parameters()),
+        lr=config['training']['learning_rate']
+    )
+    loss_fn = nn.MSELoss()
 
-    # 5. Training Loop
-    for epoch in range(config['training']['epochs_decoder']):
-        for batch in train_loader:
+    # 4. Setup Early Stopping
+    early_stopping = EarlyStopping(patience=1, verbose=True)
+
+    start_time = time.time()
+
+    # 4. Training Loop
+    for epoch in range(config['training']['epochs']):
+        train_loss = 0.0
+        val_loss = 0.0
+
+        model.train()
+        #boundary_model.train()
+        #segmentation_model.train()
+        for index, batch in enumerate(train_loader):
             rgb = batch['rgb'].to(device)
-            depth = batch['depth'].to(device)
-            
-            # Infer the transparent mask with the frozen segmentation model
-            with torch.no_grad():
-                mask_logits = segmentation_model(rgb)
-                transparent_mask = (torch.sigmoid(mask_logits) > 0.5).float()
-
-            pred_depth = depth_fusion_model(rgb, depth, transparent_mask)
-            
-            # Calculate loss only on transparent regions
-            loss = depth_loss_fn(pred_depth[transparent_mask.bool()], batch['depth_gt'][transparent_mask.bool()])
-            
+            #... get ground truths
             optimizer.zero_grad()
-            loss.backward()
+            
+            # Forward pass and loss for each model
+            batch['rgb'] = batch['rgb'] / 255
+
+            pred_normals = model([batch['rgb'], batch['rgb'], batch['rgb'], batch['rgb']])
+            loss_n = loss_fn(torch.nn.functional.normalize(pred_normals, p=2, dim=1), batch['depth'])
+            
+            #pred_boundaries = boundary_model(rgb)
+            #loss_b = boundary_loss_fn(torch.squeeze(pred_boundaries), torch.squeeze(batch['boundary_gt']))
+            
+            #pred_mask = segmentation_model(rgb)
+            #loss_s = segmentation_loss_fn(torch.squeeze(pred_mask), torch.squeeze(batch['mask_gt']))
+            
+            total_loss = loss_n
+            total_loss.backward()
             optimizer.step()
+            train_loss += total_loss.item()
+
+            print(f"Batch {index + 1} / {len(train_loader)} completed in epoch {epoch + 1} with loss: {total_loss.item()}")
+            print(f"ETA to Batch completion: {(len(train_loader) - index - 1) * ((time.time() - start_time) / (epoch * len(train_loader) + (index + 1))):.2f}s")
+            print(f"ETA to Training completion: {((len(train_loader) - index - 1) + len(train_loader) * (config['training']['epochs'] - epoch - 1)) * ((time.time() - start_time) / (epoch * len(train_loader) + (index + 1))):.2f}s\n")
+
+        model.eval()
+        #boundary_model.eval()
+        #segmentation_model.eval()
+        with torch.no_grad():
+            for batch in val_loader:
+                rgb = batch['rgb'].to(device)
+
+                # Forward pass and loss for each model
+                batch['rgb'] = batch['rgb'] / 255
+
+                pred_normals = model([batch['rgb'], batch['rgb'], batch['rgb'], batch['rgb']])
+                #batch['boundary_gt'], batch['mask_gt'], batch['normals_gt']])
+                loss_n = loss_fn(torch.nn.functional.normalize(pred_normals, p=2, dim=1), batch['depth'])
             
-            #... logging
+                #pred_boundaries = boundary_model(rgb)
+                #loss_b = boundary_loss_fn(torch.squeeze(pred_boundaries), torch.squeeze(batch['boundary_gt']))
             
-    # 6. Save the final model
-    torch.save(depth_fusion_model.state_dict(), config['paths']['depth_fusion_model_save'])
+                #pred_mask = segmentation_model(rgb)
+               # loss_s = segmentation_loss_fn(torch.squeeze(pred_mask), torch.squeeze(batch['mask_gt']))
+                
+                loss = loss_n
+                val_loss += loss.item()
+    
+        # Average validation loss
+        val_loss /= len(val_loader) * val_loader.batch_size
+
+        # Check early stopping condition
+        early_stopping.check_early_stop(val_loss, model)
+
+        print(f"\nEpoch {epoch + 1} completed with validation loss: {val_loss}\n")
+    
+        if early_stopping.stop_training:
+            model.load_state_dict(early_stopping.weights)
+            print(f"Early stopping at epoch {epoch}")
+            break
+
+        torch.save(model.state_dict(), f'./checkpoints/decoder_epoch_{epoch + 1}.pth')
+            
+    # 5. Save model checkpoints
+    torch.save(model.state_dict(), './checkpoints/decoder_final.pth')
+    #torch.save(boundary_model.state_dict(), config['paths']['boundary_model_save'])
+    #torch.save(segmentation_model.state_dict(), config['paths']['segmentation_model_save'])
 
 if __name__ == '__main__':
-    with open('config.yaml', 'r') as f:
+    with open('C:/Users/Donna/Downloads/cleargrasp_vit/config.yaml', 'r') as f:
         config = yaml.safe_load(f)
-    train_decoder(config)
+    train_decoders(config)
