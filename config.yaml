@@ -4,7 +4,7 @@
 data:
   train_path: "./data/cleargrasp-dataset-train"
   test_path: "./data/cleargrasp-dataset-test-val"
-  split_ratio: 0.7
+  split_ratio: 0.5
 
 paths:
   normal_model_save: "./checkpoints/normal_vit.pth"
@@ -27,15 +27,12 @@ training:
 # Section 3: Model Architecture Configuration
 model:
   vit:
-    image_size: 256
     patch_size: 16
     in_channels: 3 # For RGB input to encoders
-    num_classes: 1000 # Placeholder, not used for dense prediction head
-    dim: 768
+    num_patches: 16 # Placeholder, not used for dense prediction head
     depth: 12
     heads: 12
-    mlp_dim: 3072
     dropout: 0.1
-    emb_dropout: 0.1
+    expansion: 1
   
   depth_decoder_channels:  # Example for upsampling head
