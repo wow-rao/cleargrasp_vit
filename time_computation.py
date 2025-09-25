@@ -8,6 +8,7 @@ sys.path.insert(0, target_folder_path_models)
 
 import torch
 import yaml
+import numpy as np
 from vit_dense_prediction import create_vit_dense_predictor
 from vit_decoder import MultiImageVisionTransformer
 import time
