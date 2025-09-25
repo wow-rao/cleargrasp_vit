@@ -48,26 +48,25 @@ def train_encoders(config):
         boundary_model.eval()
         segmentation_model.eval()
         with torch.no_grad():
-            for batch in val_loader:
-                rgb = np.load('./data/rgb.npy')
-                rgb = resize_square(rgb)
-                rgb = torch.from_numpy(rgb).to(device) / 1
-                rgb = resize_image_tensor(rgb, 512)
-                rgb = torch.unsqueeze(rgb, 0)
+            rgb = np.load('./data/rgb.npy')
+            rgb = resize_square(rgb)
+            rgb = torch.from_numpy(rgb).to(device) / 1
+            rgb = resize_image_tensor(rgb, 512)
+            rgb = torch.unsqueeze(rgb, 0)
 
-                total_start = time.time()
-                pred_normals = normal_model(rgb)
-                print(f"The normal model takes {time.time() - total_start}s to run")
-                start_time = time.time()
-                pred_boundaries = boundary_model(rgb)
-                print(f"The boundary model takes {time.time() - start_time}s to run")
-                start_time = time.time()
-                pred_mask = segmentation_model(rgb)
-                print(f"The segmentation model takes {time.time() - start_time}s to run")
-                start_time = time.time()
-                pred_normals = model([rgb, rgb, rgb, rgb])
-                print(f"The decoder model takes {time.time() - start_time}s to run")
-                print(f"The entire model takes {time.time() - total_start}s to run")
+            total_start = time.time()
+            pred_normals = normal_model(rgb)
+            print(f"The normal model takes {time.time() - total_start}s to run")
+            start_time = time.time()
+            pred_boundaries = boundary_model(rgb)
+            print(f"The boundary model takes {time.time() - start_time}s to run")
+            start_time = time.time()
+            pred_mask = segmentation_model(rgb)
+            print(f"The segmentation model takes {time.time() - start_time}s to run")
+            start_time = time.time()
+            pred_normals = model([rgb, rgb, rgb, rgb])
+            print(f"The decoder model takes {time.time() - start_time}s to run")
+            print(f"The entire model takes {time.time() - total_start}s to run")
     
 
 if __name__ == '__main__':
