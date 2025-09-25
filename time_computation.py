@@ -50,7 +50,6 @@ def train_encoders(config):
         segmentation_model.eval()
         with torch.no_grad():
             rgb = np.load('./data/rgb.npy')
-            rgb = resize_square(rgb)
             rgb = torch.from_numpy(rgb).to(device) / 1
             rgb = resize_image_tensor(rgb, 512)
             rgb = torch.unsqueeze(rgb, 0)
