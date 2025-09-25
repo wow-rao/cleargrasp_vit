@@ -7,6 +7,7 @@ target_folder_path_models = os.path.join(current_dir, 'models')
 sys.path.insert(0, target_folder_path_models)
 
 import torch
+import yaml
 from vit_dense_prediction import create_vit_dense_predictor
 from vit_decoder import MultiImageVisionTransformer
 import time
