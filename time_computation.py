@@ -7,15 +7,23 @@ target_folder_path_models = os.path.join(current_dir, 'models')
 sys.path.insert(0, target_folder_path_models)
 
 import torch
-from torchvision import transforms
 from vit_dense_prediction import create_vit_dense_predictor
 from vit_decoder import MultiImageVisionTransformer
 import time
 
+def resize_image_tensor(image_tensor, size):
+    input_tensor_4d = image_tensor.unsqueeze(0)
+    resized_tensor_4d = torch.nn.functional.interpolate(
+        input_tensor_4d,
+        size=(size, size),
+        mode='bilinear',
+        align_corners=False
+    )
+    resized_tensor_3d = resized_tensor_4d.squeeze(0)
+    return resized_tensor_3d
+
 def train_encoders(config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    resize_square = T.Resize(512) # Resize to 256x256 pixels
 
     # Initialize Models
     normal_model = create_vit_dense_predictor(config['model']['vit'], output_channels=3).to(device)
@@ -43,6 +51,7 @@ def train_encoders(config):
                 rgb = np.load('./data/rgb.npy')
                 rgb = resize_square(rgb)
                 rgb = torch.from_numpy(rgb).to(device) / 1
+                rgb = resize_image_tensor(rgb, 512)
                 rgb = torch.unsqueeze(rgb, 0)
 
                 total_start = time.time()
