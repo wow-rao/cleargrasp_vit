@@ -48,11 +48,12 @@ def train_encoders(config):
         normal_model.eval()
         boundary_model.eval()
         segmentation_model.eval()
+        output_model.eval()
         with torch.no_grad():
             rgb = np.load('./data/rgb.npy')
             rgb = torch.from_numpy(rgb).to(device) / 1
             rgb = resize_image_tensor(rgb, 512)
-            rgb = torch.unsqueeze(rgb, 0)
+            rgb = torch.unsqueeze(torch.stack(rgb[0], rgb[0], rgb[0]), 0)
 
             total_start = time.time()
             pred_normals = normal_model(rgb)
@@ -64,7 +65,7 @@ def train_encoders(config):
             pred_mask = segmentation_model(rgb)
             print(f"The segmentation model takes {time.time() - start_time}s to run")
             start_time = time.time()
-            pred_normals = model([rgb, rgb, rgb, rgb])
+            pred_normals = output_model([rgb, rgb, rgb, rgb])
             print(f"The decoder model takes {time.time() - start_time}s to run")
             print(f"The entire model takes {time.time() - total_start}s to run")
     
