@@ -8,6 +8,7 @@ import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
 target_folder_path_data = os.path.join(current_dir, 'data')
 target_folder_path_models = os.path.join(current_dir, 'models')
+target_folder_path_models = os.path.join(target_folder_path_models, 'MODEST')
 target_folder_path_utils = os.path.join(current_dir, 'utils')
 
 sys.path.insert(0, target_folder_path_data)
@@ -20,16 +21,15 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 import torch.nn as nn
 from dataset import ClearGraspViT_Dataset
-from vit_dense_prediction import create_vit_dense_predictor
-from torch_augmentations import Compose, Resize, Normalize, RandomHorizontalFlip
 from early_stopping import EarlyStopping
+from Encoder import EncoderTrainer
 import time
 
 def train_encoders(config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_transform = transforms.Compose([
-      transforms.Resize((512, 512))
+      transforms.Resize((384, 384))
     ])
 
     # 1. Create Datasets and Dataloaders for the encoder training subset
@@ -46,7 +46,7 @@ def train_encoders(config):
     val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'], shuffle=True)
 
     # 2. Initialize Models
-    normal_model = create_vit_dense_predictor(config['model']['vit'], output_channels=3).to(device)
+    normal_model = EncoderTrainer().to(device)
     # boundary_model = create_vit_dense_predictor(config['model']['vit'], output_channels=1).to(device)
     # segmentation_model = create_vit_dense_predictor(config['model']['vit'], output_channels=1).to(device)
 
@@ -60,7 +60,7 @@ def train_encoders(config):
     #segmentation_loss_fn = nn.BCEWithLogitsLoss()
 
     # 4. Setup Early Stopping
-    early_stopping = EarlyStopping(patience=1, verbose=True)
+    early_stopping = EarlyStopping(patience=5, verbose=True)
 
     start_time = time.time()
 
@@ -74,6 +74,7 @@ def train_encoders(config):
         #segmentation_model.train()
         for index, batch in enumerate(train_loader):
             rgb = batch['rgb'].to(device)
+            normals_gt = batch['normals_gt'].to(device)
             #... get ground truths
             optimizer.zero_grad()
             
@@ -81,7 +82,7 @@ def train_encoders(config):
             rgb = rgb / 255
 
             pred_normals = normal_model(rgb)
-            loss_n = normal_loss_fn(torch.nn.functional.normalize(pred_normals, p=2, dim=1), batch['normals_gt'])
+            loss_n = normal_loss_fn(torch.nn.functional.normalize(pred_normals, p=2, dim=1), normals_gt)
             
             #pred_boundaries = boundary_model(rgb)
             #loss_b = boundary_loss_fn(torch.squeeze(pred_boundaries), torch.squeeze(batch['boundary_gt']))
@@ -121,7 +122,7 @@ def train_encoders(config):
                 val_loss += loss.item()
     
         # Average validation loss
-        val_loss /= len(val_loader) * val_loader.batch_size
+        val_loss /= len(val_loader)
 
         # Check early stopping condition
         early_stopping.check_early_stop(val_loss, normal_model)
@@ -129,7 +130,7 @@ def train_encoders(config):
         print(f"\nEpoch {epoch + 1} completed with validation loss: {val_loss}\n")
     
         if early_stopping.stop_training:
-            normal_model.load_state_dict(early_stopping.weights)
+            normal_model.load_state_dict(torch.load(early_stopping.weights))
             print(f"Early stopping at epoch {epoch}")
             break
 
