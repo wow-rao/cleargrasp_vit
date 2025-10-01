@@ -19,7 +19,7 @@ class Encoder(nn.Module):
     def __init__(self, config, vector_dim=1000, img_size=384, out_channels=1):
         super().__init__()
         
-        self.model = create_vit_dense_predictor(config, output_channels=3).to(device)
+        self.model = create_vit_dense_predictor(config, output_channels=3)
         self.img_size = img_size
         
         # Calculate initial spatial size
@@ -81,6 +81,7 @@ class Encoder(nn.Module):
         
 
         return x
+
 
 
 
