@@ -83,6 +83,7 @@ class VisionTransformer(nn.Module):
     def __init__(self, patch_size, num_patches, dropout, in_channels, heads, depth, expansion, output_channels):
         super().__init__()
         self.embeddings_block = PatchEmbedding(in_channels, num_patches, dropout)
+        self.blocks = []
         for i in range(depth):
             self.blocks.append(nn.TransformerEncoderLayer(d_model=(patch_size ** 2) * in_channels, 
                                                       nhead=heads, dropout=dropout, 
