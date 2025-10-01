@@ -83,11 +83,15 @@ class VisionTransformer(nn.Module):
     def __init__(self, patch_size, num_patches, dropout, in_channels, heads, depth, expansion, output_channels):
         super().__init__()
         self.embeddings_block = PatchEmbedding(in_channels, num_patches, dropout)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=(patch_size ** 2) * in_channels, nhead=heads, dropout=dropout, dim_feedforward=int(((patch_size ** 2) * in_channels)*expansion), activation="gelu", batch_first=True, norm_first=True)
-        self.encoder_blocks = nn.TransformerEncoder(encoder_layer, num_layers=depth)
+        for i in range(depth):
+            self.blocks.append(nn.TransformerEncoderLayer(d_model=(patch_size ** 2) * in_channels, 
+                                                      nhead=heads, dropout=dropout, 
+                                                      dim_feedforward=int(((patch_size ** 2) * in_channels)*expansion), 
+                                                      activation="gelu", batch_first=True, norm_first=True))
         self.decoder_block = ClassicDecoder(1, output_channels)
         
     def forward(self, x):
         x = self.embeddings_block(x)
-        x = self.encoder_blocks(x)
+        for i in range(len(self.blocks)):
+            x = self.blocks[i](x)
         return self.decoder_block(x)
