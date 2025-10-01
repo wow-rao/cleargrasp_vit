@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import timm
 from vit_dense_prediction import create_vit_dense_predictor
 
-class EncoderTrainer(nn.Module):
+class Encoder(nn.Module):
     """
     Converts a feature vector (B, 1000) to an image (B, 1, 384, 384)
     Uses progressive upsampling with transposed convolutions
@@ -82,3 +82,4 @@ class EncoderTrainer(nn.Module):
         
 
         return x
+
