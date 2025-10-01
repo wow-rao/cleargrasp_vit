@@ -37,14 +37,57 @@ class PatchEmbedding(nn.Module):
       x = self.dropout(x)
       return x
 
+class ClassicDecoder(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+
+        self.layer1 = nn.ConvTranspose2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                output_padding=0)
+        self.layer2 = nn.BatchNorm2d(out_channels)
+        self.layer3 = nn.ReLU(inplace=True)
+
+            # Second deconvolution block
+        self.layer4 = nn.Conv2d(
+                in_channels=out_channels,
+                out_channels=out_channels,
+                kernel_size=(6, 3),
+                stride=(4 , 3),
+                padding=0)
+
+        # Final prediction layer as per Equation (2) in the paper.
+        # A 1x1 convolution maps the features to the number of keypoints.
+        self.predictor = nn.Conv2d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.layer1(torch.unsqueeze(x, 1))
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.predictor(x)
+        return x
+
 class VisionTransformer(nn.Module):
     def __init__(self, patch_size, num_patches, dropout, in_channels, heads, depth, expansion, output_channels):
         super().__init__()
         self.embeddings_block = PatchEmbedding(in_channels, num_patches, dropout)
         encoder_layer = nn.TransformerEncoderLayer(d_model=(patch_size ** 2) * in_channels, nhead=heads, dropout=dropout, dim_feedforward=int(((patch_size ** 2) * in_channels)*expansion), activation="gelu", batch_first=True, norm_first=True)
         self.encoder_blocks = nn.TransformerEncoder(encoder_layer, num_layers=depth)
+        self.decoder_block = ClassicDecoder(1, output_channels)
         
     def forward(self, x):
         x = self.embeddings_block(x)
         x = self.encoder_blocks(x)
-        return x
+        return self.decoder_block(x)
