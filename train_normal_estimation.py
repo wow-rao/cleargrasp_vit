@@ -8,7 +8,6 @@ import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
 target_folder_path_data = os.path.join(current_dir, 'data')
 target_folder_path_models = os.path.join(current_dir, 'models')
-target_folder_path_models = os.path.join(target_folder_path_models, 'MODEST')
 target_folder_path_utils = os.path.join(current_dir, 'utils')
 
 sys.path.insert(0, target_folder_path_data)
@@ -22,14 +21,14 @@ from torchvision import transforms
 import torch.nn as nn
 from dataset import ClearGraspViT_Dataset
 from early_stopping import EarlyStopping
-from Encoder import EncoderTrainer
+from vit_dense_prediction import create_vit_dense_predictor
 import time
 
 def train_encoders(config):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_transform = transforms.Compose([
-      transforms.Resize((384, 384))
+      transforms.Resize((512, 512))
     ])
 
     # 1. Create Datasets and Dataloaders for the encoder training subset
@@ -46,7 +45,7 @@ def train_encoders(config):
     val_loader = DataLoader(val_dataset, batch_size=config['training']['batch_size'], shuffle=True)
 
     # 2. Initialize Models
-    normal_model = EncoderTrainer().to(device)
+    normal_model = create_vit_dense_predictor(config['model']['vit'], output_channels=3).to(device)
     # boundary_model = create_vit_dense_predictor(config['model']['vit'], output_channels=1).to(device)
     # segmentation_model = create_vit_dense_predictor(config['model']['vit'], output_channels=1).to(device)
 
@@ -137,11 +136,12 @@ def train_encoders(config):
         torch.save(normal_model.state_dict(), f'./checkpoints/normal_vit_epoch_{epoch + 1}.pth')
             
     # 5. Save model checkpoints
-    torch.save(normal_model.state_dict(), config['paths']['normal_model_save'])
+    torch.save(normal_model.state_dict(), './checkpoints/normal_vit.pth')
     #torch.save(boundary_model.state_dict(), config['paths']['boundary_model_save'])
     #torch.save(segmentation_model.state_dict(), config['paths']['segmentation_model_save'])
 
 if __name__ == '__main__':
-    with open('C:/Users/Donna/Downloads/cleargrasp_vit/config.yaml', 'r') as f:
+    with open('./config.yaml', 'r') as f:
         config = yaml.safe_load(f)
     train_encoders(config)
+
