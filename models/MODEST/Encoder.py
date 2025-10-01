@@ -19,7 +19,7 @@ class Encoder(nn.Module):
     def __init__(self, vector_dim=1000, img_size=384, out_channels=1):
         super().__init__()
 
-        self.model = create_vit_dense_predictor({patch_size: 16, in_channels: 3, num_patches: 16, depth: 12, heads: 12, dropout: 0.1 expansion: 1}, 
+        self.model = create_vit_dense_predictor({patch_size: 16, in_channels: 3, num_patches: 16, depth: 12, heads: 12, dropout: 0.1, expansion: 1}, 
                                                 output_channels=3).to(device)
         self.img_size = img_size
         
@@ -82,5 +82,6 @@ class Encoder(nn.Module):
         
 
         return x
+
 
 
