@@ -89,6 +89,7 @@ class VisionTransformer(nn.Module):
                                                       nhead=heads, dropout=dropout, 
                                                       dim_feedforward=int(((patch_size ** 2) * in_channels)*expansion), 
                                                       activation="gelu", batch_first=True, norm_first=True))
+        self.blocks = nn.ModuleList(self.blocks)
         self.decoder_block = ClassicDecoder(1, output_channels)
         
     def forward(self, x):
