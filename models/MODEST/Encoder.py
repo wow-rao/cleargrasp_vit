@@ -19,8 +19,15 @@ class Encoder(nn.Module):
     def __init__(self, vector_dim=1000, img_size=384, out_channels=1):
         super().__init__()
 
-        self.model = create_vit_dense_predictor({"patch_size": 16, "in_channels": 3, "num_patches": 16, "depth": 12, "heads": 12, "dropout": 0.1, "expansion": 1}, 
-                                                output_channels=3).to(device)
+        config = {}
+        config['patch_size'] = 16
+        config['in_channels'] = 3
+        config['num_patches'] = 16
+        config['depth'] = 12
+        config['heads'] = 12
+        config['dropout'] = 0.1
+        config['expansion'] = 1
+        self.model = create_vit_dense_predictor(config, output_channels=3).to(device)
         self.img_size = img_size
         
         # Calculate initial spatial size
@@ -82,6 +89,7 @@ class Encoder(nn.Module):
         
 
         return x
+
 
 
 
