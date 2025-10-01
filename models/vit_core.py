@@ -43,7 +43,6 @@ class VisionTransformer(nn.Module):
         self.embeddings_block = PatchEmbedding(in_channels, num_patches, dropout)
         encoder_layer = nn.TransformerEncoderLayer(d_model=(patch_size ** 2) * in_channels, nhead=heads, dropout=dropout, dim_feedforward=int(((patch_size ** 2) * in_channels)*expansion), activation="gelu", batch_first=True, norm_first=True)
         self.encoder_blocks = nn.TransformerEncoder(encoder_layer, num_layers=depth)
-        self.decoder = ClassicDecoder(1, output_channels)
         
     def forward(self, x):
         x = self.embeddings_block(x)
