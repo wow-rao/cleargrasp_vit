@@ -141,6 +141,7 @@ def train_encoders(config):
     #torch.save(segmentation_model.state_dict(), config['paths']['segmentation_model_save'])
 
 if __name__ == '__main__':
-    with open('C:/Users/Donna/Downloads/cleargrasp_vit/config.yaml', 'r') as f:
+    with open('./config.yaml', 'r') as f:
         config = yaml.safe_load(f)
     train_encoders(config)
+
