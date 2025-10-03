@@ -77,9 +77,6 @@ def train_encoders(config):
         # Average validation loss
         val_loss /= len(val_loader)
 
-        # Check early stopping condition
-        early_stopping.check_early_stop(val_loss, normal_model)
-
         print(f"\Model  - ({file}) has validation loss: {val_loss}\n")
 
 if __name__ == '__main__':
