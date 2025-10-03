@@ -59,6 +59,7 @@ def train_encoders(config):
 
     # 4. Training Loop
     for file in get_full_paths('./checkpoints'):
+        val_loss = 0
         normal_model.load_state_dict(torch.load(file, weights_only=True))
         with torch.no_grad():
             for batch in val_loader:
