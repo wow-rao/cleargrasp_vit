@@ -55,6 +55,8 @@ def train_encoders(config):
     # boundary_model = create_vit_dense_predictor(config['model']['vit'], output_channels=1).to(device)
     # segmentation_model = create_vit_dense_predictor(config['model']['vit'], output_channels=1).to(device)
 
+    normal_loss_fn = nn.MSELoss()
+
     # 4. Training Loop
     for file in get_full_paths('./checkpoints'):
         normal_model.load_state_dict(torch.load(file, weights_only=True))
